@@ -33,7 +33,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
   int _countdown = 0;
   Timer? _timer;
 
-  // 録画は2秒で自動停止する（Setlog風の短尺ログ）。
+  // 録画は2秒で自動停止する（Hanalog風の短尺ログ）。
   static const _recordDuration = Duration(seconds: 2);
   Timer? _recordTimer;
 

@@ -1,6 +1,6 @@
 {
-    "name": "setlog_app",
-    "short_name": "setlog_app",
+    "name": "Hanalog",
+    "short_name": "Hanalog",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

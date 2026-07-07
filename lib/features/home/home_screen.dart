@@ -149,7 +149,7 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// ブランドヘッダー。「SETLOG」ロゴと丸型アクションボタンを配置する。
+// ブランドヘッダー。「HANALOG」ロゴと丸型アクションボタンを配置する。
 class _Header extends StatelessWidget {
   const _Header({required this.onAddGroup, required this.onMore});
 
@@ -164,7 +164,7 @@ class _Header extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'SETLOG',
+              'HANALOG',
               overflow: TextOverflow.clip,
               style: const TextStyle(
                 fontSize: 28,

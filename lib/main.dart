@@ -18,7 +18,7 @@ Future<void> main() async {
   ]);
   try {
     await initSupabase();
-    runApp(const ProviderScope(child: SetlogApp()));
+    runApp(const ProviderScope(child: HanalogApp()));
   } catch (e, st) {
     // 初期化に失敗したら原因を画面に表示する（真っ白を防ぐ）。
     runApp(_StartupErrorApp(error: '$e\n\n$st'));
@@ -50,13 +50,13 @@ class _StartupErrorApp extends StatelessWidget {
 }
 
 // アプリのルートWidget。
-class SetlogApp extends StatelessWidget {
-  const SetlogApp({super.key});
+class HanalogApp extends StatelessWidget {
+  const HanalogApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Setlog',
+      title: 'Hanalog',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,

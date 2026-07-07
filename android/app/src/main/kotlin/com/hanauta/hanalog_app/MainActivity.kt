@@ -1,4 +1,4 @@
-package com.setlog.setlog_app
+package com.hanauta.hanalog_app
 
 import io.flutter.embedding.android.FlutterActivity
 

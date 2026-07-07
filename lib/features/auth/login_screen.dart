@@ -183,7 +183,7 @@ class _LoginHeader extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Setlog',
+          'Hanalog',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
