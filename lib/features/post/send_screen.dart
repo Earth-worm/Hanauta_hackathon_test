@@ -1,5 +1,4 @@
 // 送信画面。撮影動画をプレビューし、送信先グループを選んで投稿する。
-// 1時間制限で送信済みのグループはグレーアウトして選択不可にする。
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -25,13 +24,24 @@ class SendScreen extends ConsumerStatefulWidget {
 class _SendScreenState extends ConsumerState<SendScreen> {
   VideoPlayerController? _videoController;
   final Set<String> _selectedGroupIds = {};
-  // 自分のログへの投稿（時間制限なし）。初期状態でオン。
+  // 自分のログへの投稿。初期状態でオン。
   bool _postToSelf = true;
   bool _sending = false;
   final List<StickerOverlay> _stickers = [];
 
   static const _availableStickers = [
-    '⭐', '❤️', '🔥', '😊', '🎉', '👍', '✨', '🌈', '🎵', '🌟', '💫', '🎯',
+    '⭐',
+    '❤️',
+    '🔥',
+    '😊',
+    '🎉',
+    '👍',
+    '✨',
+    '🌈',
+    '🎵',
+    '🌟',
+    '💫',
+    '🎯',
   ];
 
   @override
@@ -75,17 +85,21 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
   Future<void> _send() async {
     final video = ref.read(recordedVideoProvider);
-    debugPrint('[send] _send() 呼び出し '
-        'video=${video?.file.path} '
-        'postToSelf=$_postToSelf '
-        'selectedGroups=${_selectedGroupIds.toList()} '
-        'stickers=${_stickers.length}件');
+    debugPrint(
+      '[send] _send() 呼び出し '
+      'video=${video?.file.path} '
+      'postToSelf=$_postToSelf '
+      'selectedGroups=${_selectedGroupIds.toList()} '
+      'stickers=${_stickers.length}件',
+    );
     if (video == null || _sending) return;
     if (!_postToSelf && _selectedGroupIds.isEmpty) return;
 
     setState(() => _sending = true);
     try {
-      await ref.read(postControllerProvider).send(
+      await ref
+          .read(postControllerProvider)
+          .send(
             video: video.file,
             groupIds: _selectedGroupIds.toList(),
             needsFlip: video.needsFlip,
@@ -97,9 +111,9 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       debugPrint('[send] ❌ 送信失敗: $e');
       debugPrint('[send] $st');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('送信に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('送信に失敗しました: $e')));
         setState(() => _sending = false);
       }
     }
@@ -211,9 +225,11 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             GestureDetector(
               onTap: _sending
                   ? null
-                  : () => setState(() => _stickers.add(
+                  : () => setState(
+                      () => _stickers.add(
                         StickerOverlay(emoji: emoji, x: 0.5, y: 0.5),
-                      )),
+                      ),
+                    ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                 child: Text(emoji, style: const TextStyle(fontSize: 28)),
@@ -263,7 +279,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     );
   }
 
-  // 「自分のログへあげる」選択肢。常に表示し、時間制限はかからない。
+  // 「自分のログへあげる」選択肢。常に表示する。
   Widget _buildSelfTile() {
     return CheckboxListTile(
       value: _postToSelf,
@@ -272,7 +288,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           : (checked) => setState(() => _postToSelf = checked ?? false),
       secondary: const Icon(Icons.person_outline),
       title: const Text('自分のログへあげる'),
-      subtitle: const Text('時間制限なし'),
     );
   }
 
@@ -281,19 +296,15 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       return const Center(child: Text('参加中のグループがありません'));
     }
     return ListView(
-      children: [
-        for (final group in data.groups)
-          _buildGroupTile(group, data.postedGroupIds.contains(group.id)),
-      ],
+      children: [for (final group in data.groups) _buildGroupTile(group)],
     );
   }
 
-  Widget _buildGroupTile(Group group, bool alreadyPosted) {
+  Widget _buildGroupTile(Group group) {
     final selected = _selectedGroupIds.contains(group.id);
     return CheckboxListTile(
       value: selected,
-      // 同時間帯に投稿済みのグループは選択不可（1時間に1回制限）。
-      onChanged: alreadyPosted || _sending
+      onChanged: _sending
           ? null
           : (checked) {
               setState(() {
@@ -304,11 +315,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                 }
               });
             },
-      title: Text(
-        group.name,
-        style: TextStyle(color: alreadyPosted ? Colors.grey : null),
-      ),
-      subtitle: alreadyPosted ? const Text('この時間帯は投稿済み') : null,
+      title: Text(group.name),
     );
   }
 

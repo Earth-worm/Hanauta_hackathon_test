@@ -86,9 +86,7 @@ create table public.posts (
 );
 
 -- post_shares: 投稿の共有先グループ。1投稿を複数グループへ共有できる。
--- shared_date(日付) と shared_hour(時) を明示的に持ち、
--- 「1グループ・同じユーザー・同じ日・同じ時間帯は1回まで」を一意制約で保証する（投稿ルール）。
--- ※制約に user_id を含めるため、誰か1人が投稿しても他メンバーは同じ時間帯に投稿できる。
+-- shared_date(日付) と shared_hour(時) を明示的に持ち、時間別表示に使う。
 -- 日付を式(created_at::date)で持つとIMMUTABLEでなくインデックスに使えないため、
 -- 日本時間の日付をカラムとして保存する。
 create table public.post_shares (
@@ -98,8 +96,7 @@ create table public.post_shares (
   user_id uuid not null references public.users (id) on delete cascade,
   shared_date date not null default ((now() at time zone 'Asia/Tokyo')::date),
   shared_hour int not null check (shared_hour between 0 and 23),
-  created_at timestamptz not null default now(),
-  unique (group_id, user_id, shared_date, shared_hour)
+  created_at timestamptz not null default now()
 );
 
 -- 一覧取得を速くするためのインデックス

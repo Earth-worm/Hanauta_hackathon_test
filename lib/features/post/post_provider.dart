@@ -1,6 +1,6 @@
 // 投稿（撮影・送信）の状態とロジックを管理するProvider群。
-// 撮影した動画の保持・参加中グループ取得・1時間制限の判定・
-// Storageアップロード〜posts/post_shares書き込みを担当する。
+// 撮影した動画の保持・参加中グループ取得・Storageアップロード〜
+// posts/post_shares書き込みを担当する。
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
@@ -36,7 +36,8 @@ class RecordedVideoNotifier extends Notifier<RecordedVideo?> {
 
 final recordedVideoProvider =
     NotifierProvider<RecordedVideoNotifier, RecordedVideo?>(
-        RecordedVideoNotifier.new);
+      RecordedVideoNotifier.new,
+    );
 
 class RetakeCountNotifier extends Notifier<int> {
   @override
@@ -47,23 +48,24 @@ class RetakeCountNotifier extends Notifier<int> {
   void reset() => state = 0;
 }
 
-final retakeCountProvider =
-    NotifierProvider<RetakeCountNotifier, int>(RetakeCountNotifier.new);
+final retakeCountProvider = NotifierProvider<RetakeCountNotifier, int>(
+  RetakeCountNotifier.new,
+);
 
-// 送信先選択に必要なデータ（参加中グループ + 今この時間帯に投稿済みのグループID）。
+// 送信先選択に必要なデータ（参加中グループ）。
 class SendTargets {
-  const SendTargets({required this.groups, required this.postedGroupIds});
+  const SendTargets({required this.groups});
 
   final List<Group> groups;
-  // 今日・現在の時間帯に既に投稿済みのグループID（グレーアウト対象）。
-  final Set<String> postedGroupIds;
 }
 
-// 送信画面で参加中グループと投稿済み状況をまとめて取得するProvider。
-final sendTargetsProvider = FutureProvider.autoDispose<SendTargets>((ref) async {
+// 送信画面で参加中グループを取得するProvider。
+final sendTargetsProvider = FutureProvider.autoDispose<SendTargets>((
+  ref,
+) async {
   final userId = supabase.auth.currentUser?.id;
   if (userId == null) {
-    return const SendTargets(groups: [], postedGroupIds: {});
+    return const SendTargets(groups: []);
   }
 
   final memberRows = await supabase
@@ -77,27 +79,7 @@ final sendTargetsProvider = FutureProvider.autoDispose<SendTargets>((ref) async 
         Group.fromJson(row['groups'] as Map<String, dynamic>),
   ];
 
-  if (groups.isEmpty) {
-    return const SendTargets(groups: [], postedGroupIds: {});
-  }
-
-  final now = jstNow();
-  final today = jstDateString(now);
-  final hour = now.hour;
-
-  final shareRows = await supabase
-      .from('post_shares')
-      .select('group_id, posts!inner(user_id)')
-      .eq('posts.user_id', userId)
-      .eq('shared_date', today)
-      .eq('shared_hour', hour)
-      .inFilter('group_id', [for (final g in groups) g.id]);
-
-  final postedGroupIds = <String>{
-    for (final row in shareRows) row['group_id'] as String,
-  };
-
-  return SendTargets(groups: groups, postedGroupIds: postedGroupIds);
+  return SendTargets(groups: groups);
 });
 
 // 撮影・送信の操作（送信処理）を提供するProvider。
@@ -120,10 +102,12 @@ class PostController {
     bool needsFlip = false,
     List<StickerOverlay> stickers = const [],
   }) async {
-    debugPrint('[post] send() 開始 '
-        'groupIds=${groupIds.length}件 '
-        'stickers=${stickers.length}件 '
-        'needsFlip=$needsFlip');
+    debugPrint(
+      '[post] send() 開始 '
+      'groupIds=${groupIds.length}件 '
+      'stickers=${stickers.length}件 '
+      'needsFlip=$needsFlip',
+    );
 
     final userId = supabase.auth.currentUser?.id;
     debugPrint('[post] userId=$userId');
@@ -132,22 +116,28 @@ class PostController {
       throw StateError('ログインが必要です');
     }
 
-    debugPrint('[post] 動画処理開始 '
-        'path=${video.path} mimeType=${video.mimeType}');
+    debugPrint(
+      '[post] 動画処理開始 '
+      'path=${video.path} mimeType=${video.mimeType}',
+    );
     final processed = await processVideo(
       video,
       stickers: stickers,
       needsFlip: needsFlip,
     );
-    debugPrint('[post] 動画処理完了 '
-        '${processed.bytes.length} bytes (${(processed.bytes.length / 1024 / 1024).toStringAsFixed(2)} MB)');
+    debugPrint(
+      '[post] 動画処理完了 '
+      '${processed.bytes.length} bytes (${(processed.bytes.length / 1024 / 1024).toStringAsFixed(2)} MB)',
+    );
 
     final now = jstNow();
     final path =
         '$userId/${DateTime.now().millisecondsSinceEpoch}.${processed.extension}';
     debugPrint('[post] Storage アップロード開始 path=$path');
 
-    await supabase.storage.from('videos').uploadBinary(
+    await supabase.storage
+        .from('videos')
+        .uploadBinary(
           path,
           processed.bytes,
           fileOptions: FileOptions(contentType: processed.mimeType),

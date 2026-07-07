@@ -103,10 +103,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          groupAsync.maybeWhen(
-            data: (g) => g.name,
-            orElse: () => 'グループ',
-          ),
+          groupAsync.maybeWhen(data: (g) => g.name, orElse: () => 'グループ'),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
@@ -124,10 +121,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               _dayLabel,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           Expanded(
@@ -155,8 +151,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 250),
                     child: KeyedSubtree(
-                      key: ValueKey(
-                          '${_date.toIso8601String()}-$_hour'),
+                      key: ValueKey('${_date.toIso8601String()}-$_hour'),
                       child: _buildContent(membersAsync, postsAsync),
                     ),
                   ),
@@ -186,7 +181,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
     final members = membersAsync.value ?? const [];
     final posts = postsAsync.value ?? const [];
-    final postByUser = {for (final p in posts) p.userId: p};
+    final postedUserIds = {for (final p in posts) p.userId};
 
     if (members.isEmpty) {
       return const Center(child: Text('メンバーがいません'));
@@ -195,13 +190,15 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
+        for (final post in posts)
+          _MemberPostCard(
+            key: ValueKey(post.postId),
+            post: post,
+            slotLabel: _slotLabel,
+          ),
         for (final member in members)
-          postByUser[member.id] != null
-              ? _MemberPostCard(
-                  post: postByUser[member.id]!,
-                  slotLabel: _slotLabel,
-                )
-              : _EmptyMemberCard(member: member, slotLabel: _slotLabel),
+          if (!postedUserIds.contains(member.id))
+            _EmptyMemberCard(member: member, slotLabel: _slotLabel),
       ],
     );
   }
@@ -219,15 +216,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (group != null) ...[
-                  Text('招待コード',
-                      style: Theme.of(context).textTheme.labelLarge),
+                  Text('招待コード', style: Theme.of(context).textTheme.labelLarge),
                   const SizedBox(height: 4),
                   SelectableText(
                     group.inviteCode,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(letterSpacing: 2),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.headlineSmall?.copyWith(letterSpacing: 2),
                   ),
                   const Divider(height: 24),
                 ],
@@ -235,12 +230,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                 const SizedBox(height: 8),
                 Consumer(
                   builder: (context, ref, _) {
-                    final membersAsync =
-                        ref.watch(groupMembersProvider(widget.groupId));
+                    final membersAsync = ref.watch(
+                      groupMembersProvider(widget.groupId),
+                    );
                     return membersAsync.when(
-                      data: (members) => Column(
-                        children: members.map(_memberTile).toList(),
-                      ),
+                      data: (members) =>
+                          Column(children: members.map(_memberTile).toList()),
                       loading: () => const Padding(
                         padding: EdgeInsets.all(8),
                         child: CircularProgressIndicator(),
@@ -260,22 +255,15 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   Widget _memberTile(AppUser member) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: _Avatar(
-        name: member.name,
-        radius: 18,
-      ),
+      leading: _Avatar(name: member.name, radius: 18),
       title: Text(member.name),
     );
   }
-
 }
 
 // メンバーの頭文字アバター。
 class _Avatar extends StatelessWidget {
-  const _Avatar({
-    required this.name,
-    this.radius = 16,
-  });
+  const _Avatar({required this.name, this.radius = 16});
 
   final String name;
   final double radius;
@@ -297,7 +285,11 @@ class _Avatar extends StatelessWidget {
 // 投稿済みメンバーのカード。動画を自動再生し、投稿者名・時刻を重ねる。
 // 縦で撮影した動画を90度左回転して横向きで表示する。
 class _MemberPostCard extends StatefulWidget {
-  const _MemberPostCard({required this.post, required this.slotLabel});
+  const _MemberPostCard({
+    super.key,
+    required this.post,
+    required this.slotLabel,
+  });
 
   final GroupPost post;
   final String slotLabel;
@@ -320,8 +312,9 @@ class _MemberPostCardState extends State<_MemberPostCard> {
   Future<void> _initialize() async {
     try {
       // キャッシュ済みなら即時、無ければ取得してから再生（再取得を防ぐ）。
-      final controller =
-          await createCachedVideoController(widget.post.videoUrl);
+      final controller = await createCachedVideoController(
+        widget.post.videoUrl,
+      );
       _controller = controller;
       await controller.initialize();
       await controller.setLooping(true);
@@ -355,8 +348,11 @@ class _MemberPostCardState extends State<_MemberPostCard> {
             const ColoredBox(
               color: Colors.black87,
               child: Center(
-                child: Icon(Icons.error_outline,
-                    color: Colors.white54, size: 40),
+                child: Icon(
+                  Icons.error_outline,
+                  color: Colors.white54,
+                  size: 40,
+                ),
               ),
             )
           else if (_initialized && controller != null)
@@ -372,9 +368,7 @@ class _MemberPostCardState extends State<_MemberPostCard> {
                 child: CircularProgressIndicator(color: Colors.white),
               ),
             ),
-          _NameOverlay(
-            name: widget.post.userName,
-          ),
+          _NameOverlay(name: widget.post.userName),
           _TimeOverlay(label: widget.slotLabel),
         ],
       ),
@@ -400,20 +394,13 @@ class _EmptyMemberCard extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.hourglass_empty,
-                    size: 32, color: Colors.grey[400]),
+                Icon(Icons.hourglass_empty, size: 32, color: Colors.grey[400]),
                 const SizedBox(height: 8),
-                Text(
-                  'まだ投稿していません',
-                  style: TextStyle(color: Colors.grey[500]),
-                ),
+                Text('まだ投稿していません', style: TextStyle(color: Colors.grey[500])),
               ],
             ),
           ),
-          _NameOverlay(
-            name: member.name,
-            dark: false,
-          ),
+          _NameOverlay(name: member.name, dark: false),
           _TimeOverlay(label: slotLabel, dark: false),
         ],
       ),
@@ -442,10 +429,7 @@ class _CardFrame extends StatelessWidget {
                 : Border.all(color: Colors.grey.shade300, width: 1.5),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: AspectRatio(
-            aspectRatio: 16 / 10,
-            child: child,
-          ),
+          child: AspectRatio(aspectRatio: 16 / 10, child: child),
         ),
       ),
     );

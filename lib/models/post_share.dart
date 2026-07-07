@@ -1,6 +1,5 @@
 // 投稿の共有先のデータモデル。Supabaseのpost_sharesテーブルと対応。
 // 1投稿を複数グループへ共有する構造。
-// 「1グループ・同じ日・同じ時間帯は1回まで」の制限を sharedDate + sharedHour で管理する。
 
 class PostShare {
   const PostShare({
@@ -15,7 +14,7 @@ class PostShare {
   final String id;
   final String postId;
   final String groupId;
-  // 共有した日付（日本時間）。sharedHour と組み合わせて重複投稿を防ぐ。
+  // 共有した日付（日本時間）。グループ詳細の時間別表示に使う。
   final DateTime sharedDate;
   // 共有した時間帯（0〜23）。
   final int sharedHour;
@@ -38,8 +37,7 @@ class PostShare {
       'post_id': postId,
       'group_id': groupId,
       // DATE型カラムには 'YYYY-MM-DD' 形式で渡す。
-      'shared_date':
-          sharedDate.toIso8601String().split('T').first,
+      'shared_date': sharedDate.toIso8601String().split('T').first,
       'shared_hour': sharedHour,
       'created_at': createdAt.toIso8601String(),
     };
