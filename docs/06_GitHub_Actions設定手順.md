@@ -94,7 +94,7 @@ push できたら、**GitHub のリポジトリページ** → 上のタブか�
 URL の形式：
 
 ```
-https://<Organization名>.github.io/<リポジトリ名>/
+https://<代表者のGitHubユーザー名>.github.io/<リポジトリ名>/
 ```
 
 この URL をスマホのブラウザで開けば、最新版のアプリが表示されます🎉
