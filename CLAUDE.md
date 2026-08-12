@@ -22,9 +22,8 @@
 - [必須課題](docs/03_必須課題.md) … 全員が取り組む3つの課題（ログインUI改善 / グループ脱退 / プロフィール画面）
 - [自由課題](docs/04_自由課題.md) … 初級〜上級の発展課題。上級は自前 Supabase に likes/comments 等のテーブルを自分で設計して取り組む
 - [開発の流れ](docs/05_開発の流れ.md) … ブランチ作成〜push〜マージ〜スマホ配布の1サイクル
-- [GitHub Actions 設定手順](docs/06_GitHub_Actions設定手順.md) … スマホ自動配布の設定
-- [コーディング規約](docs/07_コーディング規約.md) … フォルダ構成・命名・コメント規則
-- [データベース設計](docs/08_データベース設計.md) … 既存テーブルの構造
+- [コーディング規約](docs/06_コーディング規約.md) … フォルダ構成・命名・コメント規則
+- [データベース設計](docs/07_データベース設計.md) … 既存テーブルの構造
 
 ---
 
@@ -43,7 +42,7 @@
 | `web/camera_helper.js` | Web カメラのパーミッション制御 |
 | `web/ffmpeg_helper.js` | ffmpeg.wasm による動画変換。JS 側のステッカー焼き付け処理 |
 | `web/ffmpeg/` | ffmpeg.wasm のバイナリ群 |
-| `.github/workflows/distribute.yml` | APK 自動ビルド・配布の CI 設定 |
+| `.github/workflows/deploy.yml` | Web ビルド・GitHub Pages 自動デプロイの CI 設定 |
 | `main.dart` | アプリのエントリーポイント。初期化順序が重要 |
 
 > 上記以外の `lib/features/` や `lib/models/` は自由に編集・追加してOK。
@@ -82,7 +81,7 @@ final rows = await supabase
 
 # コーディング時の必須ルール
 
-コードを書くときは必ず以下を守ること。詳細は [docs/07_コーディング規約.md](docs/07_コーディング規約.md) を参照。
+コードを書くときは必ず以下を守ること。詳細は [docs/06_コーディング規約.md](docs/06_コーディング規約.md) を参照。
 
 ## フォルダ構成
 

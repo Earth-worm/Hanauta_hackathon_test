@@ -13,5 +13,9 @@ build/
 .idea/
 .vscode/
 *.iml
+devtools_options.yaml
 
 yunchols_room.txt
+
+# 運営用資料（生徒には配らない）
+運営用/
