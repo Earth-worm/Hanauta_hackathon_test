@@ -401,7 +401,7 @@ class _EmptyMemberCard extends StatelessWidget {
             ),
           ),
           _NameOverlay(name: member.name, dark: false),
-          _TimeOverlay(label: slotLabel, dark: false),
+          _TimeBadge(label: slotLabel),
         ],
       ),
     );
@@ -468,25 +468,53 @@ class _NameOverlay extends StatelessWidget {
   }
 }
 
-// カード中央の時刻ラベル。
+// 投稿済みカード中央の時刻ラベル。動画の上に重ねて表示する。
 class _TimeOverlay extends StatelessWidget {
-  const _TimeOverlay({required this.label, this.dark = true});
+  const _TimeOverlay({required this.label});
 
   final String label;
-  final bool dark;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Text(
         label,
-        style: TextStyle(
-          color: dark ? Colors.white : Colors.grey[500],
+        style: const TextStyle(
+          color: Colors.white,
           fontSize: 28,
           fontWeight: FontWeight.w900,
-          shadows: dark
-              ? const [Shadow(blurRadius: 8, color: Colors.black54)]
-              : null,
+          shadows: [Shadow(blurRadius: 8, color: Colors.black54)],
+        ),
+      ),
+    );
+  }
+}
+
+// 未投稿カード右上の時刻バッジ。中央のプレースホルダーと重ならないよう隅に置く。
+class _TimeBadge extends StatelessWidget {
+  const _TimeBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 12,
+      right: 12,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
