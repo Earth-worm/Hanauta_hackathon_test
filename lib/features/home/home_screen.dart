@@ -77,31 +77,25 @@ class HomeScreen extends ConsumerWidget {
   }
 
   void _showGroupMenu(BuildContext context) {
-    showModalBottomSheet<void>(
+    showGeneralDialog<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text('グループ作成'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                context.push('/group/create');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.login),
-              title: const Text('グループ参加'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                context.push('/group/join');
-              },
-            ),
-          ],
-        ),
-      ),
+      barrierDismissible: true,
+      barrierLabel: 'グループメニュー',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, _, _) => const _GroupMenuDialog(),
+      // 中央から少し拡大しながらフェードインさせる。
+      transitionBuilder: (_, animation, _, child) {
+        final curved =
+            CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -146,6 +140,187 @@ class HomeScreen extends ConsumerWidget {
     if (confirmed != true) return;
     await ref.read(authControllerProvider.notifier).signOut();
     if (context.mounted) context.go('/login');
+  }
+}
+
+// グループ作成・参加を選ぶ中央ポップアップ。ヘッダーの「＋」から開く。
+class _GroupMenuDialog extends StatelessWidget {
+  const _GroupMenuDialog();
+
+  static const _pink = Color(0xFFEC407A);
+  static const _pinkSoft = Color(0xFFF06292);
+
+  @override
+  Widget build(BuildContext context) {
+    final router = GoRouter.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Material(
+          color: const Color(0xFFFFF6F9),
+          elevation: 12,
+          shadowColor: _pink.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(28),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 12, 20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [_pink, _pinkSoft],
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'グループ',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              '仲間とVlogを共有しよう',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close),
+                        color: Colors.white,
+                        iconSize: 20,
+                        tooltip: '閉じる',
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                  child: Column(
+                    children: [
+                      _GroupMenuOption(
+                        icon: Icons.group_add_outlined,
+                        title: 'グループ作成',
+                        subtitle: '新しいグループを立ち上げる',
+                        color: _pink,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          router.push('/group/create');
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _GroupMenuOption(
+                        icon: Icons.qr_code_scanner_outlined,
+                        title: 'グループ参加',
+                        subtitle: '招待コードで参加する',
+                        color: _pinkSoft,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          router.push('/group/join');
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ポップアップ内の選択肢1件。アイコン・タイトル・説明を1枚のカードで表示する。
+class _GroupMenuOption extends StatelessWidget {
+  const _GroupMenuOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: color.withValues(alpha: 0.12),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: color),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
