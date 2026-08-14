@@ -1,9 +1,10 @@
 // グループ詳細画面。指定した日付・時間帯のメンバー全員の投稿を一覧表示する。
 // 投稿済みは動画カード、未投稿は枠（プレースホルダー）で表示する。
-// 時間移動（左右タップ）／日付移動（左右スワイプ）／メンバー・招待も担当。
+// 時間移動（左右タップ）／日付移動（左右スワイプ）／メンバー・招待・脱退も担当。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/analytics.dart';
@@ -11,6 +12,7 @@ import '../../core/cached_video.dart';
 import '../../core/jst.dart';
 import '../../models/app_user.dart';
 import '../../models/group.dart';
+import '../home/home_provider.dart';
 import '../post/recorded_video_view.dart';
 import 'group_provider.dart';
 
@@ -42,6 +44,7 @@ class GroupDetailScreen extends ConsumerStatefulWidget {
 class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   late DateTime _date;
   late int _hour;
+  bool _leaving = false;
 
   @override
   void initState() {
@@ -114,53 +117,72 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // 相対的な日付ラベル（今日/昨日/曜日）のみ表示する。
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              _dayLabel,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          _buildBody(membersAsync, postsAsync),
+          // 脱退処理中は操作を受け付けないようにオーバーレイで覆う。
+          if (_leaving)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black26,
+                child: Center(child: CircularProgressIndicator()),
+              ),
             ),
-          ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  // 左半分タップ→前の時間 / 右半分タップ→次の時間（未来は不可）。
-                  onTapUp: (details) {
-                    if (details.localPosition.dx < constraints.maxWidth / 2) {
-                      if (_hour > 0) _changeHour(-1);
-                    } else if (_canGoForwardHour) {
-                      _changeHour(1);
-                    }
-                  },
-                  // 昨日が左・翌日が右のイメージ。右スワイプ→前日 / 左スワイプ→翌日。
-                  onHorizontalDragEnd: (details) {
-                    final v = details.primaryVelocity ?? 0;
-                    if (v < 0) {
-                      if (_canGoForwardDate) _changeDate(1);
-                    } else if (v > 0) {
-                      _changeDate(-1);
-                    }
-                  },
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: KeyedSubtree(
-                      key: ValueKey('${_date.toIso8601String()}-$_hour'),
-                      child: _buildContent(membersAsync, postsAsync),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody(
+    AsyncValue<List<AppUser>> membersAsync,
+    AsyncValue<List<GroupPost>> postsAsync,
+  ) {
+    return Column(
+      children: [
+        // 相対的な日付ラベル（今日/昨日/曜日）のみ表示する。
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            _dayLabel,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                // 左半分タップ→前の時間 / 右半分タップ→次の時間（未来は不可）。
+                onTapUp: (details) {
+                  if (details.localPosition.dx < constraints.maxWidth / 2) {
+                    if (_hour > 0) _changeHour(-1);
+                  } else if (_canGoForwardHour) {
+                    _changeHour(1);
+                  }
+                },
+                // 昨日が左・翌日が右のイメージ。右スワイプ→前日 / 左スワイプ→翌日。
+                onHorizontalDragEnd: (details) {
+                  final v = details.primaryVelocity ?? 0;
+                  if (v < 0) {
+                    if (_canGoForwardDate) _changeDate(1);
+                  } else if (v > 0) {
+                    _changeDate(-1);
+                  }
+                },
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: KeyedSubtree(
+                    key: ValueKey('${_date.toIso8601String()}-$_hour'),
+                    child: _buildContent(membersAsync, postsAsync),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -244,12 +266,69 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     );
                   },
                 ),
+                const Divider(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                      _confirmLeave();
+                    },
+                    icon: const Icon(Icons.logout),
+                    label: const Text('グループを脱退'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _confirmLeave() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('グループを脱退しますか？'),
+        content: const Text('脱退すると、このグループの投稿は見られなくなります。\n再参加するには招待コードが必要です。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('脱退する'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _leaveGroup();
+  }
+
+  Future<void> _leaveGroup() async {
+    // 画面遷移後にも通知を出せるよう、messenger を先に取得しておく。
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _leaving = true);
+    try {
+      await ref.read(groupServiceProvider).leaveGroup(widget.groupId);
+      if (!mounted) return;
+      ref.invalidate(myGroupsProvider);
+      context.go('/home');
+      messenger.showSnackBar(const SnackBar(content: Text('グループを脱退しました')));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _leaving = false);
+      messenger.showSnackBar(SnackBar(content: Text('脱退に失敗しました: $e')));
+    }
   }
 
   Widget _memberTile(AppUser member) {
