@@ -2,7 +2,10 @@
 // 投稿済みは動画カード、未投稿は枠（プレースホルダー）で表示する。
 // 時間移動（左右タップ）／日付移動（左右スワイプ）／メンバー・招待も担当。
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
@@ -110,7 +113,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           IconButton(
             icon: const Icon(Icons.info_outline),
             tooltip: 'グループ情報',
-            onPressed: () => _showInfoSheet(groupAsync.value),
+            onPressed: () => _showInfoDialog(groupAsync.value),
           ),
         ],
       ),
@@ -203,60 +206,356 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     );
   }
 
-  void _showInfoSheet(Group? group) {
-    showModalBottomSheet<void>(
+  void _showInfoDialog(Group? group) {
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (group != null) ...[
-                  Text('招待コード', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 4),
-                  SelectableText(
-                    group.inviteCode,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.headlineSmall?.copyWith(letterSpacing: 2),
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (dialogContext) =>
+          _GroupInfoDialog(group: group, groupId: widget.groupId),
+    );
+  }
+}
+
+// グループ情報ダイアログ。招待コードとメンバー一覧を画面中央にポップアップ表示する。
+class _GroupInfoDialog extends StatelessWidget {
+  const _GroupInfoDialog({required this.group, required this.groupId});
+
+  final Group? group;
+  final String groupId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 48),
+      // ふわっと弾むように登場させる。
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.8, end: 1),
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutBack,
+        builder: (context, value, child) => Opacity(
+          opacity: value.clamp(0.0, 1.0),
+          child: Transform.scale(scale: value, child: child),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7E57C2).withValues(alpha: 0.28),
+                blurRadius: 32,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeader(context),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (group != null) ...[
+                        _InviteCodeCard(code: group!.inviteCode),
+                        const SizedBox(height: 20),
+                      ],
+                      _buildMembers(context),
+                    ],
                   ),
-                  const Divider(height: 24),
-                ],
-                Text('メンバー', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 8),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final membersAsync = ref.watch(
-                      groupMembersProvider(widget.groupId),
-                    );
-                    return membersAsync.when(
-                      data: (members) =>
-                          Column(children: members.map(_memberTile).toList()),
-                      loading: () => const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: CircularProgressIndicator(),
-                      ),
-                      error: (e, _) => Text('メンバー取得エラー: $e'),
-                    );
-                  },
                 ),
-              ],
+              ),
+              _buildCloseButton(context),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFB39DDB), Color(0xFFF48FB1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.28),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.6),
+                width: 2,
+              ),
+            ),
+            child: const Icon(
+              Icons.favorite_rounded,
+              color: Colors.white,
+              size: 28,
             ),
           ),
+          const SizedBox(height: 10),
+          Text(
+            group?.name ?? 'グループ',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMembers(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final membersAsync = ref.watch(groupMembersProvider(groupId));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.people_alt_rounded,
+                  size: 16,
+                  color: Color(0xFF9575CD),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'メンバー',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF9575CD),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (membersAsync.value != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F0FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${membersAsync.value!.length}人',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF9575CD),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            membersAsync.when(
+              data: (members) =>
+                  Column(children: members.map((m) => _memberTile(m)).toList()),
+              loading: () => const Padding(
+                padding: EdgeInsets.all(12),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Text(
+                'メンバー取得エラー: $e',
+                style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
   Widget _memberTile(AppUser member) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: _Avatar(name: member.name, radius: 18),
-      title: Text(member.name),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF7FF),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _Avatar(name: member.name, radius: 16),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              member.name,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCloseButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF9575CD),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+          ),
+          child: const Text(
+            'とじる',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 招待コードのカード。右のボタンでクリップボードにコピーできる。
+class _InviteCodeCard extends StatefulWidget {
+  const _InviteCodeCard({required this.code});
+
+  final String code;
+
+  @override
+  State<_InviteCodeCard> createState() => _InviteCodeCardState();
+}
+
+class _InviteCodeCardState extends State<_InviteCodeCard> {
+  bool _copied = false;
+  Timer? _resetTimer;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.code));
+    if (!mounted) return;
+    setState(() => _copied = true);
+    // 一定時間後に通常表示へ戻す。
+    _resetTimer?.cancel();
+    _resetTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F0FF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFDCCFFF), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.vpn_key_rounded, size: 16, color: Color(0xFF9575CD)),
+              SizedBox(width: 6),
+              Text(
+                '招待コード',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF9575CD),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: SelectableText(
+                  widget.code,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 6,
+                    color: Color(0xFF5E35B1),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              _buildCopyButton(),
+            ],
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            child: _copied
+                ? const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'コピーしました！',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF66BB6A),
+                      ),
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCopyButton() {
+    return Material(
+      color: _copied ? const Color(0xFFE8F5E9) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: _copied ? const Color(0xFFA5D6A7) : const Color(0xFFDCCFFF),
+          width: 1.5,
+        ),
+      ),
+      child: InkWell(
+        onTap: _copy,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(
+            _copied ? Icons.check_rounded : Icons.copy_rounded,
+            size: 20,
+            color: _copied ? const Color(0xFF66BB6A) : const Color(0xFF9575CD),
+          ),
+        ),
+      ),
     );
   }
 }
